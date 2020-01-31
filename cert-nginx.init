@@ -108,7 +108,6 @@ do_stop()
         if [ $? -ne 0 ]
         then
             show_success '[success]'
-            unlink "$pid_file"
             return 0
         fi
         sleep "$wait_tick"
