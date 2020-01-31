@@ -121,7 +121,7 @@ function httpRequest($url, $method, $post_data = '')
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
     } else {
-        echo "curl_failed: invalid http method\n";
+        echo "curl failed: invalid http method\n";
         return false;
     }
 
@@ -151,7 +151,33 @@ function getAcmeUrlDirectory()
         return false;
     }
 
-    return true;
+    $response = json_decode($ret['response'], true);
+    if ($response === false) {
+        echo 'acme/directory failed: invalid response'."\n";
+        return false;
+    }
+
+    $acme_url_dir = array();
+
+    if (isset($response['newNonce']) === false) {
+        echo 'acme/directory failed: `newNonce` not found'."\n";
+        return false;
+    }
+    $acme_url_dir['newNonce'] = $response['newNonce'];
+
+    if (isset($response['newAccount']) === false) {
+        echo 'acme/directory failed: `newAccount` not found'."\n";
+        return false;
+    }
+    $acme_url_dir['newAccount'] = $response['newAccount'];
+
+    if (isset($response['newOrder']) === false) {
+        echo 'acme/directory failed: `newOrder` not found'."\n";
+        return false;
+    }
+    $acme_url_dir['newOrder'] = $response['newOrder'];
+
+    return $acme_url_dir;
 }
 
 function main($argc, $argv)
