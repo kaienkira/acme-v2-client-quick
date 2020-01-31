@@ -144,6 +144,16 @@ function httpRequest($url, $method, $post_data = '')
     );
 }
 
+function getAcmeUrlDirectory()
+{
+    $ret = httpRequest(Config::$acme_url_base.'/directory', 'get');
+    if ($ret === false) {
+        return false;
+    }
+
+    return true;
+}
+
 function main($argc, $argv)
 {
     $prog_name = basename($argv[0]);
@@ -173,6 +183,12 @@ function main($argc, $argv)
     // load csr file
     $csr = loadCsrFile($csr_file);
     if ($csr === false) {
+        return false;
+    }
+
+    // get acme url directory
+    $acme_url_dir = getAcmeUrlDirectory();
+    if ($acme_url_dir === false) {
         return false;
     }
 
