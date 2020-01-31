@@ -125,7 +125,7 @@ done
 domain_param=`printf "$domain_param" | sed 's/;$//g'`
 if [ $? -ne 0 ]; then exit 1; fi
 
-php "$script_path"/acme-client.php \
+php "$script_path"/acme-v2-client.php \
     -a "$script_path"/cert/account.key \
     -r "$script_path"/cert/domain.csr \
     -d "$domain_param" \
