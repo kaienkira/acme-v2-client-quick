@@ -126,12 +126,28 @@ function httpRequest($url, $method, $post_data = '')
     );
 }
 
+function getReplayNonce($acme_res, $http_response_header)
+{
+    preg_match('/^[Rr]eplay-[Nn]once: (.*?)\r\n/sm',
+        $http_response_header, $matches);
+    if (isset($matches[1]) === false) {
+        echo "curl failed: replay nonce header is missing\n";
+        return false;
+    }
+    $acme_res['nonce'] = $matches[1];
+
+    return true;
+}
+
 function signedHttpRequest($acme_res, $url, $payload)
 {
     // get first nonce
     if ($acme_res['nonce'] == '') {
         $ret = httpRequest($acme_res['new_nonce'], 'head');
         if ($ret === false) {
+            return false;
+        }
+        if (getReplayNonce($acme_res, $ret['header']) === false) {
             return false;
         }
     }
