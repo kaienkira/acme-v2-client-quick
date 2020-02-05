@@ -176,6 +176,27 @@ function buildAcmeResource($account_key)
     return $acme_res;
 }
 
+function signedHttpRequest($acme_res, $url, $payload)
+{
+    // get first nonce
+    if ($acme_res['nonce'] == '') {
+        $ret = httpRequest($acme_res['new_nonce'], 'head');
+        if ($ret === false) {
+            return false;
+        }
+    }
+}
+
+function registerAccount($acme_res)
+{
+    // register account
+    $ret = signedHttpRequest($acme_res, $acme_res['new_account'], array(
+        'termsOfServiceAgreed' => true,
+    ));
+
+    return true;
+}
+
 function main($argc, $argv)
 {
     $prog_name = basename($argv[0]);
@@ -219,6 +240,11 @@ function main($argc, $argv)
         echo "terms of service has changed: ".
              "please modify your -t command option\n".
              'new tos: '.$acme_res['tos']."\n";
+        return false;
+    }
+
+    // register account
+    if (registerAccount($acme_res) === false) {
         return false;
     }
 
