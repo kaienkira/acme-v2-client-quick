@@ -126,6 +126,17 @@ function httpRequest($url, $method, $post_data = '')
     );
 }
 
+function signedHttpRequest($acme_res, $url, $payload)
+{
+    // get first nonce
+    if ($acme_res['nonce'] == '') {
+        $ret = httpRequest($acme_res['new_nonce'], 'head');
+        if ($ret === false) {
+            return false;
+        }
+    }
+}
+
 function buildAcmeResource($account_key)
 {
     $ret = httpRequest(Config::$acme_url_base.'/directory', 'get');
@@ -174,17 +185,6 @@ function buildAcmeResource($account_key)
     $acme_res['account_key_info'] = $account_key_info;
 
     return $acme_res;
-}
-
-function signedHttpRequest($acme_res, $url, $payload)
-{
-    // get first nonce
-    if ($acme_res['nonce'] == '') {
-        $ret = httpRequest($acme_res['new_nonce'], 'head');
-        if ($ret === false) {
-            return false;
-        }
-    }
 }
 
 function registerAccount($acme_res)
