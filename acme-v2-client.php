@@ -58,7 +58,7 @@ function loadCsrFile($csr_file)
     return urlbase64(base64_decode(implode('', $lines)));
 }
 
-function getAccountKeyInfo($key)
+function getRsaKeyInfo($key)
 {
     $key_info = openssl_pkey_get_details($key);
     if ($key_info === false) {
@@ -74,24 +74,6 @@ function getAccountKeyInfo($key)
         'e' => urlbase64($key_info['rsa']['e']),
         'n' => urlbase64($key_info['rsa']['n']),
     );
-}
-
-function getThumbPrint($key)
-{
-    $key_info = getAccountKeyInfo($key);
-    if ($key_info === false) {
-        return false;
-    }
-
-    $thumb_print = array(
-        'e' => $key_info['e'],
-        'kty' => 'RSA',
-        'n' => $key_info['n'],
-    );
-    $thumb_print = urlbase64(openssl_digest(
-        json_encode($thumb_print), "sha256", true));
-
-    return $thumb_print;
 }
 
 function signMessage($key, $message)
@@ -144,7 +126,7 @@ function httpRequest($url, $method, $post_data = '')
     );
 }
 
-function getAcmeUrlDirectory()
+function buildAcmeResource($account_key)
 {
     $ret = httpRequest(Config::$acme_url_base.'/directory', 'get');
     if ($ret === false) {
@@ -157,34 +139,41 @@ function getAcmeUrlDirectory()
         return false;
     }
 
-    $acme_url_dir = array();
+    $acme_res = array();
 
     if (isset($response['newNonce']) === false) {
         echo 'acme/directory failed: `newNonce` not found'."\n";
         return false;
     }
-    $acme_url_dir['new_nonce'] = $response['newNonce'];
+    $acme_res['new_nonce'] = $response['newNonce'];
 
     if (isset($response['newAccount']) === false) {
         echo 'acme/directory failed: `newAccount` not found'."\n";
         return false;
     }
-    $acme_url_dir['new_account'] = $response['newAccount'];
+    $acme_res['new_account'] = $response['newAccount'];
 
     if (isset($response['newOrder']) === false) {
         echo 'acme/directory failed: `newOrder` not found'."\n";
         return false;
     }
-    $acme_url_dir['new_order'] = $response['newOrder'];
+    $acme_res['new_order'] = $response['newOrder'];
 
     if (isset($response['meta']) === false ||
         isset($response['meta']['termsOfService']) === false) {
         echo 'acme/directory failed: `meta/termsOfService` not found'."\n";
         return false;
     }
-    $acme_url_dir['tos'] = $response['meta']['termsOfService'];
+    $acme_res['tos'] = $response['meta']['termsOfService'];
+    $acme_res['nonce'] = '';
 
-    return $acme_url_dir;
+    $account_key_info = getRsaKeyInfo($account_key);
+    if ($account_key_info === false) {
+        return false;
+    }
+    $acme_res['account_key_info'] = $account_key_info;
+
+    return $acme_res;
 }
 
 function main($argc, $argv)
@@ -208,8 +197,8 @@ function main($argc, $argv)
     $tos = isset($cmd_options['t']) ? $cmd_options['t'] : '';
 
     // load account key
-    $key = loadAccountKey($account_key_file);
-    if ($key === false) {
+    $account_key = loadAccountKey($account_key_file);
+    if ($account_key === false) {
         return false;
     }
 
@@ -219,9 +208,17 @@ function main($argc, $argv)
         return false;
     }
 
-    // get acme url directory
-    $acme_url_dir = getAcmeUrlDirectory();
-    if ($acme_url_dir === false) {
+    // build acme resource
+    $acme_res = buildAcmeResource($account_key);
+    if ($acme_res === false) {
+        return false;
+    }
+
+    // check tos
+    if ($tos != '' && $tos != $acme_res['tos']) {
+        echo "terms of service has changed: ".
+             "please modify your -t command option\n".
+             'new tos: '.$acme_res['tos']."\n";
         return false;
     }
 
