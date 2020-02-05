@@ -163,19 +163,26 @@ function getAcmeUrlDirectory()
         echo 'acme/directory failed: `newNonce` not found'."\n";
         return false;
     }
-    $acme_url_dir['newNonce'] = $response['newNonce'];
+    $acme_url_dir['new_nonce'] = $response['newNonce'];
 
     if (isset($response['newAccount']) === false) {
         echo 'acme/directory failed: `newAccount` not found'."\n";
         return false;
     }
-    $acme_url_dir['newAccount'] = $response['newAccount'];
+    $acme_url_dir['new_account'] = $response['newAccount'];
 
     if (isset($response['newOrder']) === false) {
         echo 'acme/directory failed: `newOrder` not found'."\n";
         return false;
     }
-    $acme_url_dir['newOrder'] = $response['newOrder'];
+    $acme_url_dir['new_order'] = $response['newOrder'];
+
+    if (isset($response['meta']) === false ||
+        isset($response['meta']['termsOfService']) === false) {
+        echo 'acme/directory failed: `meta/termsOfService` not found'."\n";
+        return false;
+    }
+    $acme_url_dir['tos'] = $response['meta']['termsOfService'];
 
     return $acme_url_dir;
 }
