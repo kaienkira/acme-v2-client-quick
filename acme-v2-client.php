@@ -233,12 +233,12 @@ final class AcmeClient
                 'e' => $this->account_key_info_['e'],
                 'n' => $this->account_key_info_['n'],
             ),
-            'nonce' => $this->nonce_;
+            'nonce' => $this->nonce_,
             'url' => $url,
         );
 
-        $payload64 = urlbase64(json_encode($payload));
-        $protected64 = urlbase64(json_encode($protected));
+        $payload64 = Util::urlbase64(json_encode($payload));
+        $protected64 = Util::urlbase64(json_encode($protected));
         $sign = Util::signMessage(
             $this->account_key_, $protected64.'.'.$payload64);
         if ($sign === false) {
