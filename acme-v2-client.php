@@ -119,21 +119,24 @@ final class Util
 
 final class AcmeClient
 {
-    private $account_key_info = null;
-    private $nonce = null;
+    private $account_key_ = null;
+    private $account_key_info_ = null;
+    private $nonce_ = null;
 
-    private $new_nonce_url = null;
-    private $new_account_url = null;
-    private $new_order_url = null;
-    private $tos_url = null;
+    private $new_nonce_url_ = null;
+    private $new_account_url_ = null;
+    private $new_order_url_ = null;
+    private $tos_url_ = null;
 
     public function init($account_key)
     {
+        $this->account_key_ = $account_key;
+
         $account_key_info = Util::getRsaKeyInfo($account_key);
         if ($account_key_info === false) {
             return false;
         }
-        $this->account_key_info = $account_key_info;
+        $this->account_key_info_ = $account_key_info;
 
         $ret = Util::httpRequest(Config::$acme_url_base.'/directory', 'get');
         if ($ret === false) {
@@ -150,36 +153,36 @@ final class AcmeClient
             echo 'acme/directory failed: `newNonce` not found'."\n";
             return false;
         }
-        $this->new_nonce_url = $response['newNonce'];
+        $this->new_nonce_url_ = $response['newNonce'];
 
         if (isset($response['newAccount']) === false) {
             echo 'acme/directory failed: `newAccount` not found'."\n";
             return false;
         }
-        $this->new_account_url = $response['newAccount'];
+        $this->new_account_url_ = $response['newAccount'];
 
         if (isset($response['newOrder']) === false) {
             echo 'acme/directory failed: `newOrder` not found'."\n";
             return false;
         }
-        $this->new_order_url = $response['newOrder'];
+        $this->new_order_url_ = $response['newOrder'];
 
         if (isset($response['meta']) === false ||
             isset($response['meta']['termsOfService']) === false) {
             echo 'acme/directory failed: `meta/termsOfService` not found'."\n";
             return false;
         }
-        $this->tos_url = $response['meta']['termsOfService'];
+        $this->tos_url_ = $response['meta']['termsOfService'];
 
         return true;
     }
 
     public function checkTermOfService($tos)
     {
-        if ($tos != '' && $tos != $this->tos_url) {
+        if ($tos != '' && $tos != $this->tos_url_) {
             echo "terms of service has changed: ".
                  "please modify your -t command option\n".
-                 'new tos: '.$this->tos_url."\n";
+                 'new tos: '.$this->tos_url_."\n";
             return false;
         }
 
@@ -189,7 +192,7 @@ final class AcmeClient
     public function registerAccount()
     {
         // register account
-        $ret = self::signedHttpRequest($this->new_account_url, array(
+        $ret = self::signedHttpRequest($this->new_account_url_, array(
             'termsOfServiceAgreed' => true,
         ));
 
@@ -204,7 +207,7 @@ final class AcmeClient
             echo "curl failed: replay nonce header is missing\n";
             return false;
         }
-        $this->nonce = $matches[1];
+        $this->nonce_ = $matches[1];
 
         return true;
     }
@@ -212,8 +215,8 @@ final class AcmeClient
     private function signedHttpRequest($url, $payload)
     {
         // get first nonce
-        if ($this->nonce === null) {
-            $ret = Util::httpRequest($this->new_nonce_url, 'head');
+        if ($this->nonce_ === null) {
+            $ret = Util::httpRequest($this->new_nonce_url_, 'head');
             if ($ret === false) {
                 return false;
             }
@@ -221,6 +224,35 @@ final class AcmeClient
                 return false;
             }
         }
+
+        // protected
+        $protected = array(
+            'alg' => 'RS256',
+            'jwk' => array(
+                'kty' => 'RSA',
+                'e' => $this->account_key_info_['e'],
+                'n' => $this->account_key_info_['n'],
+            ),
+            'nonce' => $this->nonce_;
+            'url' => $url,
+        );
+
+        $payload64 = urlbase64(json_encode($payload));
+        $protected64 = urlbase64(json_encode($protected));
+        $sign = Util::signMessage(
+            $this->account_key_, $protected64.'.'.$payload64);
+        if ($sign === false) {
+            return false;
+        }
+
+        $request_data = array(
+            'protected' => $protected64,
+            'payload' => $payload64,
+            'signature' => $sign,
+        );
+        $request_data = json_encode($request_data);
+
+        return httpRequest($url, 'post', $request_data);
     }
 }
 
