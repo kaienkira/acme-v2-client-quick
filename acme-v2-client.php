@@ -268,9 +268,18 @@ final class AcmeClient
         );
         $request_data = json_encode($request_data);
 
-        return Util::httpRequest($url, 'post', $request_data, array(
+        $ret = Util::httpRequest($url, 'post', $request_data, array(
             'Content-Type: application/jose+json',
         ));
+
+        // update nonce
+        if ($ret !== false && isset($ret['header'])) {
+            if (self::getReplayNonce($ret['header']) === false) {
+                return false;
+            }
+        }
+
+        return $ret;
     }
 }
 
