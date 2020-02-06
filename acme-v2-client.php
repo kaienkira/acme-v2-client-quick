@@ -189,7 +189,7 @@ final class AcmeClient
     public function registerAccount()
     {
         // register account
-        $ret = signedHttpRequest($this->new_account_url, array(
+        $ret = self::signedHttpRequest($this->new_account_url, array(
             'termsOfServiceAgreed' => true,
         ));
 
@@ -213,11 +213,11 @@ final class AcmeClient
     {
         // get first nonce
         if ($this->nonce === null) {
-            $ret = httpRequest($this->new_nonce_url, 'head');
+            $ret = Util::httpRequest($this->new_nonce_url, 'head');
             if ($ret === false) {
                 return false;
             }
-            if (getReplayNonce($ret['header']) === false) {
+            if (self::getReplayNonce($ret['header']) === false) {
                 return false;
             }
         }
