@@ -252,7 +252,9 @@ final class AcmeClient
         );
         $request_data = json_encode($request_data);
 
-        return Util::httpRequest($url, 'post', $request_data);
+        return Util::httpRequest($url, 'post', $request_data, array(
+            'Content-Type: application/jose+json',
+        ));
     }
 }
 
