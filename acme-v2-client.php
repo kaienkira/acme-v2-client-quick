@@ -75,7 +75,8 @@ final class Util
         return self::urlbase64(base64_decode(implode('', $lines)));
     }
 
-    public static function httpRequest($url, $method, $post_data = '')
+    public static function httpRequest($url, $method,
+        $post_data = '', $request_headers = [])
     {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -95,6 +96,10 @@ final class Util
         } else {
             echo "curl failed: invalid http method\n";
             return false;
+        }
+
+        if (count($request_headers) > 0) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $request_headers);
         }
 
         $output = curl_exec($ch);
