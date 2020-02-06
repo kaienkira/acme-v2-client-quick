@@ -200,6 +200,17 @@ final class AcmeClient
         $ret = self::signedHttpRequest($this->new_account_url_, array(
             'termsOfServiceAgreed' => true,
         ));
+        if ($ret === false) {
+            return false;
+        }
+
+        // 200 - account exists
+        // 201 - account created
+        if ($ret['http_code'] != 200 &&
+            $ret['http_code'] != 201) {
+            echo 'acme/newAccount failed: '.$ret['response']."\n";
+            return false;
+        }
 
         return true;
     }
