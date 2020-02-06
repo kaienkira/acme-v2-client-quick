@@ -72,7 +72,7 @@ final class Util
         $lines = explode("\n", $csr_file_content);
         unset($lines[0]);
         unset($lines[count($lines) - 1]);
-        return urlbase64(base64_decode(implode('', $lines)));
+        return self::urlbase64(base64_decode(implode('', $lines)));
     }
 
     public static function httpRequest($url, $method, $post_data = '')
@@ -135,7 +135,7 @@ final class AcmeClient
         }
         $this->account_key_info = $account_key_info;
 
-        $ret = httpRequest(Config::$acme_url_base.'/directory', 'get');
+        $ret = Util::httpRequest(Config::$acme_url_base.'/directory', 'get');
         if ($ret === false) {
             return false;
         }
@@ -174,7 +174,7 @@ final class AcmeClient
         return true;
     }
 
-    private function checkTermOfService($tos)
+    public function checkTermOfService($tos)
     {
         if ($tos != '' && $tos != $this->tos_url) {
             echo "terms of service has changed: ".
@@ -186,7 +186,7 @@ final class AcmeClient
         return true;
     }
 
-    private function registerAccount()
+    public function registerAccount()
     {
         // register account
         $ret = signedHttpRequest($this->new_account_url, array(
