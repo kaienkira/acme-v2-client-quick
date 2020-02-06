@@ -127,6 +127,7 @@ final class AcmeClient
     private $account_key_ = null;
     private $account_key_info_ = null;
     private $nonce_ = null;
+    private $kid_ = null;
 
     private $new_nonce_url_ = null;
     private $new_account_url_ = null;
@@ -194,9 +195,9 @@ final class AcmeClient
         return true;
     }
 
-    public function registerAccount()
+    public function createAccount()
     {
-        // register account
+        // create account
         $ret = self::signedHttpRequest($this->new_account_url_, array(
             'termsOfServiceAgreed' => true,
         ));
@@ -212,20 +213,56 @@ final class AcmeClient
             return false;
         }
 
+        if (self::fetchKeyId($ret['header']) === false) {
+            return false;
+        }
+
         return true;
     }
 
-    private function getReplayNonce($http_response_header)
+    public function submitOrder($domain_list)
+    {
+        $identifiers = array();
+        foreach ($domain_list as $domain) {
+            array_push($identifiers, array(
+                'type' => 'dns',
+                'value' => $domain,
+            ));
+        }
+
+        // submit order
+        $ret = self::signedHttpRequest($this->new_order_url_, array(
+            'identifiers' => $identifiers,
+        ));
+        if ($ret === false) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function fetchReplayNonce($http_response_header)
     {
         preg_match('/^[Rr]eplay-[Nn]once: (.*?)\r\n/sm',
             $http_response_header, $matches);
         if (isset($matches[1]) === false) {
-            echo "curl failed: replay nonce header is missing\n";
+            echo "acme failed: replay-nonce header is missing\n";
             return false;
         }
         $this->nonce_ = $matches[1];
 
         return true;
+    }
+
+    private function fetchKeyId($http_response_header)
+    {
+        preg_match('/^[Ll]ocation: (.*?)\r\n/sm',
+            $http_response_header, $matches);
+        if (isset($matches[1]) === false) {
+            echo "acme failed: location header(kid) is missing\n";
+            return false;
+        }
+        $this->kid_ = $matches[1];
     }
 
     private function signedHttpRequest($url, $payload)
@@ -236,7 +273,7 @@ final class AcmeClient
             if ($ret === false) {
                 return false;
             }
-            if (self::getReplayNonce($ret['header']) === false) {
+            if (self::fetchReplayNonce($ret['header']) === false) {
                 return false;
             }
         }
@@ -244,14 +281,19 @@ final class AcmeClient
         // protected
         $protected = array(
             'alg' => 'RS256',
-            'jwk' => array(
-                'kty' => 'RSA',
-                'e' => $this->account_key_info_['e'],
-                'n' => $this->account_key_info_['n'],
-            ),
             'nonce' => $this->nonce_,
             'url' => $url,
         );
+
+        if ($this->kid_ === null) {
+            $protected['jwk'] = array(
+                'kty' => 'RSA',
+                'e' => $this->account_key_info_['e'],
+                'n' => $this->account_key_info_['n'],
+            );
+        } else {
+            $protected['kid'] = $this->kid_;
+        }
 
         $payload64 = Util::urlbase64(json_encode($payload));
         $protected64 = Util::urlbase64(json_encode($protected));
@@ -274,7 +316,7 @@ final class AcmeClient
 
         // update nonce
         if ($ret !== false && isset($ret['header'])) {
-            if (self::getReplayNonce($ret['header']) === false) {
+            if (self::fetchReplayNonce($ret['header']) === false) {
                 return false;
             }
         }
@@ -335,8 +377,12 @@ function main($argc, $argv)
     if ($acme_client->checkTermOfService($tos) === false) {
         return false;
     }
-    // register account
-    if ($acme_client->registerAccount() === false) {
+    // create account
+    if ($acme_client->createAccount() === false) {
+        return false;
+    }
+    // submit order
+    if ($acme_client->submitOrder($domain_list) === false) {
         return false;
     }
 
