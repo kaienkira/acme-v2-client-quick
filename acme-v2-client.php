@@ -119,9 +119,9 @@ final class AcmeClient
         }
 
         $thumb_print = array(
-            'e' => $key_info['e'],
+            'e' => $key_info['rsa']['e'],
             'kty' => 'RSA',
-            'n' => $key_info['n'],
+            'n' => $key_info['rsa']['n'],
         );
         $thumb_print = Util::urlbase64(openssl_digest(
             json_encode($thumb_print), 'sha256', true));
