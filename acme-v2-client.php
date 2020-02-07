@@ -320,7 +320,7 @@ final class AcmeClient
             }
 
             // send challenge ready
-            $ret = signedHttpRequest($http_challenge['url'], array());
+            $ret = self::signedHttpRequest($http_challenge['url'], '{}');
             if ($ret === false) {
                 return false;
             }
@@ -396,7 +396,7 @@ final class AcmeClient
 
         $protected64 =
             Util::urlbase64(json_encode($protected));
-        $payload64 = ($payload === '') ? '' :
+        $payload64 = is_string($payload) ? $payload :
             Util::urlbase64(json_encode($payload));
         $sign = self::signMessage($protected64.'.'.$payload64);
         if ($sign === false) {
