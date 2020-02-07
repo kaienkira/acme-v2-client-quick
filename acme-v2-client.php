@@ -245,6 +245,29 @@ final class AcmeClient
         }
 
         $response = json_decode($ret['response'], true);
+        if ($response === false) {
+            echo 'acme/newOrder failed: invalid response'."\n";
+            return false;
+        }
+        if (isset($response['authorizations']) === false) {
+            echo 'acme/newOrder failed: `authorizations` not found'."\n";
+            return false;
+        }
+        if (is_array($response['authorizations']) === false) {
+            echo 'acme/newOrder failed: `authorizations` is invalid'."\n";
+            return false;
+        }
+        if (isset($response['finalize']) === false) {
+            echo 'acme/newOrder failed: `finalize` not found'."\n";
+            return false;
+        }
+
+        $authorization_urls = $response['authorizations'];
+        $order_finalize_url = $response['finalize'];
+
+        foreach ($authorization_urls as $authorization_url) {
+            $ret = self::signedHttpRequest($authorization_url, '');
+        }
 
         return true;
     }
@@ -303,8 +326,10 @@ final class AcmeClient
             $protected['kid'] = $this->kid_;
         }
 
-        $payload64 = Util::urlbase64(json_encode($payload));
-        $protected64 = Util::urlbase64(json_encode($protected));
+        $protected64 =
+            Util::urlbase64(json_encode($protected));
+        $payload64 = ($payload === '') ? '' :
+            Util::urlbase64(json_encode($payload));
         $sign = Util::signMessage(
             $this->account_key_, $protected64.'.'.$payload64);
         if ($sign === false) {
