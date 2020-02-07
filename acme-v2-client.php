@@ -227,7 +227,7 @@ final class AcmeClient
         return true;
     }
 
-    public function domainChallenge($domain_list, $http_challenge_dir)
+    public function issueCertificate($domain_list, $http_challenge_dir)
     {
         $identifiers = array();
         foreach ($domain_list as $domain) {
@@ -326,6 +326,56 @@ final class AcmeClient
             if ($ret === false) {
                 return false;
             }
+            if ($ret['http_code'] != 200) {
+                echo 'acme/challenge failed: '.$ret['response']."\n";
+                return false;
+            }
+
+            // wait to be verified
+            for (;;) {
+                $ret = self::signedHttpRequest($authorization_url, '');
+                if ($ret === false) {
+                    return false;
+                }
+                if ($ret['http_code'] != 200) {
+                    echo 'acme/authorization failed: '.$ret['response']."\n";
+                    return false;
+                }
+
+                $response = json_decode($ret['response'], true);
+                if ($response === false) {
+                    echo 'acme/authorization failed: invalid response'."\n";
+                    return false;
+                }
+                if (isset($response['status']) === false) {
+                    echo 'acme/authorization failed: `status` not found'."\n";
+                    return false;
+                }
+                if ($response['status'] === 'invalid') {
+                    echo 'acme/authorization failed: '.$ret['response']."\n";
+                    return false;
+                } else if ($response['status'] === 'pending') {
+                    sleep(2);
+                    continue;
+                } else if ($response['status'] === 'valid') {
+                    break;
+                } else {
+                    echo 'acme/authorization failed: `status` is invalid'."\n";
+                    return false;
+                }
+            }
+        }
+
+        // finalize order
+        $ret = self::signedHttpRequest($order_finalize_url, array(
+            'csr' => $this->csr_,
+        ));
+        if ($ret === false) {
+            return false;
+        }
+        if ($ret['http_code'] != 200) {
+            echo 'acme/finalizeOrder failed: '.$ret['response']."\n";
+            return false;
         }
 
         return true;
@@ -474,8 +524,8 @@ function main($argc, $argv)
     if ($acme_client->createAccount() === false) {
         return false;
     }
-    // domain challenge
-    if ($acme_client->domainChallenge(
+    // issue certificate
+    if ($acme_client->issueCertificate(
             $domain_list, $http_challenge_dir) === false) {
         return false;
     }
