@@ -118,9 +118,18 @@ final class AcmeClient
             return false;
         }
 
+        $thumb_print = array(
+            'e' => $key_info['e'],
+            'kty' => 'RSA',
+            'n' => $key_info['n'],
+        );
+        $thumb_print = Util::urlbase64(openssl_digest(
+            json_encode($thumb_print), 'sha256', true));
+
         $this->account_key_info_ = array(
             'e' => Util::urlbase64($key_info['rsa']['e']),
             'n' => Util::urlbase64($key_info['rsa']['n']),
+            'thumb_print' => $thumb_print,
         );
     }
 
