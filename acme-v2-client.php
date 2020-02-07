@@ -368,7 +368,7 @@ final class AcmeClient
         }
 
         // finalize order
-        $cert_url = null;
+        $certificate_url = null;
         for (;;) {
             $ret = self::signedHttpRequest($order_finalize_url, array(
                 'csr' => $this->csr_,
@@ -400,12 +400,26 @@ final class AcmeClient
                         '`certificate` not found'."\n";
                     return false;
                 }
-                $cert_url = $response['certificate'];
+                $certificate_url = $response['certificate'];
                 break;
             } else {
                 echo 'acme/finalizeOrder failed: '.$ret['response']."\n";
                 return false;
             }
+        }
+
+        // download certificate
+        $ret = self::signedHttpRequest($certificate_url, '');
+        if ($ret === false) {
+            return false;
+        }
+        if ($ret['http_code'] != 200) {
+            echo 'acme/certificate failed: '.$ret['response']."\n";
+            return false;
+        }
+        if (file_put_contents(
+                $output_cert_file, $ret['response']) === false) {
+            return false;
         }
 
         return true;
