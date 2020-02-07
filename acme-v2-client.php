@@ -336,7 +336,7 @@ final class AcmeClient
             return false;
         }
 
-        return self::urlbase64($sign);
+        return Util::urlbase64($sign);
     }
 
     private function signedHttpRequest($url, $payload)
