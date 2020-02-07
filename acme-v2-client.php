@@ -220,7 +220,7 @@ final class AcmeClient
         return true;
     }
 
-    public function submitOrder($domain_list)
+    public function domainChallenge($domain_list)
     {
         $identifiers = array();
         foreach ($domain_list as $domain) {
@@ -237,6 +237,14 @@ final class AcmeClient
         if ($ret === false) {
             return false;
         }
+
+        // 201 - order created
+        if ($ret['http_code'] != 201) {
+            echo 'acme/newOrder failed: '.$ret['response']."\n";
+            return false;
+        }
+
+        $response = json_decode($ret['response'], true);
 
         return true;
     }
@@ -381,8 +389,8 @@ function main($argc, $argv)
     if ($acme_client->createAccount() === false) {
         return false;
     }
-    // submit order
-    if ($acme_client->submitOrder($domain_list) === false) {
+    // domain challenge
+    if ($acme_client->domainChallenge($domain_list) === false) {
         return false;
     }
 
