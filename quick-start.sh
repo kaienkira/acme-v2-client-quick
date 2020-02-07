@@ -13,6 +13,22 @@ then
     exit 1
 fi
 
+# check nginx
+which nginx >/dev/null 2>&1
+if [ $? -ne 0 ]
+then
+    echo "error: nginx not installed"
+    exit 1
+fi
+
+# check php
+which php >/dev/null 2>&1
+if [ $? -ne 0 ]
+then
+    echo "error: php not installed"
+    exit 1
+fi
+
 # get domain
 if [ ! -f "$script_path"/domain.txt ]
 then
