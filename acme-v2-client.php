@@ -396,8 +396,9 @@ final class AcmeClient
 
         $protected64 =
             Util::urlbase64(json_encode($protected));
-        $payload64 = is_string($payload) ? $payload :
-            Util::urlbase64(json_encode($payload));
+        $payload64 = is_string($payload)
+            ? Util::urlbase64($payload)
+            : Util::urlbase64(json_encode($payload));
         $sign = self::signMessage($protected64.'.'.$payload64);
         if ($sign === false) {
             return false;
