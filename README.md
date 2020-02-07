@@ -20,7 +20,7 @@ sudo apt-get install php-cli php-curl nginx
 
 ## put your domain name in domain.txt
 ```
-cd acme-client-quick
+cd acme-v2-client-quick
 echo "example.com" >> domain.txt
 echo "www.example.com" >> domain.txt
 ```
