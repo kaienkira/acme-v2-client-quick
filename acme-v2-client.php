@@ -227,7 +227,8 @@ final class AcmeClient
         return true;
     }
 
-    public function issueCertificate($domain_list, $http_challenge_dir)
+    public function issueCertificate(
+        $domain_list, $http_challenge_dir, $output_cert_file)
     {
         $identifiers = array();
         foreach ($domain_list as $domain) {
@@ -367,15 +368,44 @@ final class AcmeClient
         }
 
         // finalize order
-        $ret = self::signedHttpRequest($order_finalize_url, array(
-            'csr' => $this->csr_,
-        ));
-        if ($ret === false) {
-            return false;
-        }
-        if ($ret['http_code'] != 200) {
-            echo 'acme/finalizeOrder failed: '.$ret['response']."\n";
-            return false;
+        $cert_url = null;
+        for (;;) {
+            $ret = self::signedHttpRequest($order_finalize_url, array(
+                'csr' => $this->csr_,
+            ));
+            if ($ret === false) {
+                return false;
+            }
+            if ($ret['http_code'] != 200) {
+                echo 'acme/finalizeOrder failed: '.$ret['response']."\n";
+                return false;
+            }
+
+            $response = json_decode($ret['response'], true);
+            if ($response === false) {
+                echo 'acme/finalizeOrder failed: invalid response'."\n";
+                return false;
+            }
+            if (isset($response['status']) === false) {
+                echo 'acme/finalizeOrder failed: `status` not found'."\n";
+                return false;
+            }
+
+            if ($response['status'] === 'processing') {
+                sleep(2);
+                continue;
+            } else if ($response['status'] === 'valid') {
+                if (isset($response['certificate']) === false) {
+                    echo 'acme/finalizeOrder failed: '.
+                        '`certificate` not found'."\n";
+                    return false;
+                }
+                $cert_url = $response['certificate'];
+                break;
+            } else {
+                echo 'acme/finalizeOrder failed: '.$ret['response']."\n";
+                return false;
+            }
         }
 
         return true;
@@ -525,8 +555,8 @@ function main($argc, $argv)
         return false;
     }
     // issue certificate
-    if ($acme_client->issueCertificate(
-            $domain_list, $http_challenge_dir) === false) {
+    if ($acme_client->issueCertificate($domain_list,
+            $http_challenge_dir, $output_cert_file) === false) {
         return false;
     }
 
