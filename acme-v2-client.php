@@ -3,10 +3,10 @@
 
 final class Config
 {
-    // debug use
-    public static $acme_url_base = 'https://acme-staging-v02.api.letsencrypt.org';
+    // dev use
+    // public static $acme_url_base = 'https://acme-staging-v02.api.letsencrypt.org';
     // prod use
-    // public static $acme_url_base = 'https://acme-v02.api.letsencrypt.org';
+    public static $acme_url_base = 'https://acme-v02.api.letsencrypt.org';
 }
 
 final class Util
