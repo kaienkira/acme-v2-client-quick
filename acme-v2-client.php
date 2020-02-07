@@ -19,62 +19,6 @@ final class Util
             base64_encode($bin));
     }
 
-    public static function signMessage($key, $message)
-    {
-        if (openssl_sign($message, $sign, $key, 'sha256') === false) {
-            return false;
-        }
-
-        return self::urlbase64($sign);
-    }
-
-    public static function getRsaKeyInfo($key)
-    {
-        $key_info = openssl_pkey_get_details($key);
-        if ($key_info === false) {
-            echo "openssl failed: ".openssl_error_string()."\n";
-            return false;
-        }
-        if (!isset($key_info['rsa'])) {
-            echo "account key file is not rsa private key\n";
-            return false;
-        }
-
-        return array(
-            'e' => self::urlbase64($key_info['rsa']['e']),
-            'n' => self::urlbase64($key_info['rsa']['n']),
-        );
-    }
-
-    public static function loadAccountKey($account_key_file)
-    {
-        $key_file_content = file_get_contents($account_key_file);
-        if ($key_file_content === false) {
-            echo "can not open file: $account_key_file\n";
-            return false;
-        }
-        $key = openssl_pkey_get_private($key_file_content);
-        if ($key === false) {
-            echo "openssl failed: ".openssl_error_string()."\n";
-            return false;
-        }
-
-        return $key;
-    }
-
-    public static function loadCsrFile($csr_file)
-    {
-        $csr_file_content = file_get_contents($csr_file);
-        if ($csr_file_content === false) {
-            echo "can not open file: $csr_file_content\n";
-            return false;
-        }
-        $lines = explode("\n", $csr_file_content);
-        unset($lines[0]);
-        unset($lines[count($lines) - 1]);
-        return self::urlbase64(base64_decode(implode('', $lines)));
-    }
-
     public static function httpRequest($url, $method,
         $post_data = '', $request_headers = [])
     {
@@ -126,6 +70,7 @@ final class AcmeClient
 {
     private $account_key_ = null;
     private $account_key_info_ = null;
+    private $csr_ = null;
     private $nonce_ = null;
     private $kid_ = null;
 
@@ -134,16 +79,68 @@ final class AcmeClient
     private $new_order_url_ = null;
     private $tos_url_ = null;
 
-    public function init($account_key)
+    public function init($account_key_file, $csr_file)
     {
-        $this->account_key_ = $account_key;
-
-        $account_key_info = Util::getRsaKeyInfo($account_key);
-        if ($account_key_info === false) {
+        if ($this->initAccountKey($account_key_file) === false) {
             return false;
         }
-        $this->account_key_info_ = $account_key_info;
+        if ($this->initCsr($csr_file) === false) {
+            return false;
+        }
+        if ($this->initAcmeDirectory() === false) {
+            return false;
+        }
 
+        return true;
+    }
+
+    private function initAccountKey($account_key_file)
+    {
+        $key_file_content = file_get_contents($account_key_file);
+        if ($key_file_content === false) {
+            echo "can not open file: $account_key_file\n";
+            return false;
+        }
+
+        $this->account_key_ = openssl_pkey_get_private($key_file_content);
+        if ($this->account_key_ === false) {
+            echo "openssl failed: ".openssl_error_string()."\n";
+            return false;
+        }
+
+        $key_info = openssl_pkey_get_details($this->account_key_);
+        if ($key_info === false) {
+            echo "openssl failed: ".openssl_error_string()."\n";
+            return false;
+        }
+        if (isset($key_info['rsa']) === false) {
+            echo 'account key file is not rsa private key'."\n";
+            return false;
+        }
+
+        $this->account_key_info_ = array(
+            'e' => Util::urlbase64($key_info['rsa']['e']),
+            'n' => Util::urlbase64($key_info['rsa']['n']),
+        );
+    }
+
+    private function initCsr($csr_file)
+    {
+        $csr_file_content = file_get_contents($csr_file);
+        if ($csr_file_content === false) {
+            echo "can not open file: $csr_file_content\n";
+            return false;
+        }
+        $lines = explode("\n", $csr_file_content);
+        unset($lines[0]);
+        unset($lines[count($lines) - 1]);
+        $this->csr_ = Util::urlbase64(base64_decode(implode('', $lines)));
+
+        return true;
+    }
+
+    private function initAcmeDirectory()
+    {
         $ret = Util::httpRequest(Config::$acme_url_base.'/directory', 'get');
         if ($ret === false) {
             return false;
@@ -204,7 +201,6 @@ final class AcmeClient
         if ($ret === false) {
             return false;
         }
-
         // 200 - account exists
         // 201 - account created
         if ($ret['http_code'] != 200 &&
@@ -237,7 +233,6 @@ final class AcmeClient
         if ($ret === false) {
             return false;
         }
-
         // 201 - order created
         if ($ret['http_code'] != 201) {
             echo 'acme/newOrder failed: '.$ret['response']."\n";
@@ -267,6 +262,43 @@ final class AcmeClient
 
         foreach ($authorization_urls as $authorization_url) {
             $ret = self::signedHttpRequest($authorization_url, '');
+            if ($ret === false) {
+                return false;
+            }
+            if ($ret['http_code'] != 200) {
+                echo 'acme/authorization failed: '.$ret['response']."\n";
+                return false;
+            }
+
+            $response = json_decode($ret['response'], true);
+            if ($response === false) {
+                echo 'acme/authorization failed: invalid response'."\n";
+                return false;
+            }
+            if (isset($response['challenges']) === false) {
+                echo 'acme/authorization failed: `challenges` not found'."\n";
+                return false;
+            }
+            if (is_array($response['challenges']) === false) {
+                echo 'acme/authorization failed: `challenges` is invalid'."\n";
+                return false;
+            }
+
+            $challenges = $response['challenges'];
+
+            $http_challenge = null;
+            foreach ($challenges as $challenge) {
+                if (isset($challenge['type']) &&
+                    isset($challenge['url']) &&
+                    isset($challenge['token']) &&
+                    $challenge['type'] === 'http-01') {
+                    $http_challenge = $challenge;
+                }
+            }
+            if ($http_challenge === null) {
+                echo 'acme/authorization failed: `challenges` is invalid'."\n";
+                return false;
+            }
         }
 
         return true;
@@ -294,6 +326,17 @@ final class AcmeClient
             return false;
         }
         $this->kid_ = $matches[1];
+    }
+
+    private function signMessage($message)
+    {
+        if (openssl_sign($message, $sign,
+                $this->account_key_, 'sha256') === false) {
+            echo "openssl failed: ".openssl_error_string()."\n";
+            return false;
+        }
+
+        return self::urlbase64($sign);
     }
 
     private function signedHttpRequest($url, $payload)
@@ -330,8 +373,7 @@ final class AcmeClient
             Util::urlbase64(json_encode($protected));
         $payload64 = ($payload === '') ? '' :
             Util::urlbase64(json_encode($payload));
-        $sign = Util::signMessage(
-            $this->account_key_, $protected64.'.'.$payload64);
+        $sign = self::signMessage($protected64.'.'.$payload64);
         if ($sign === false) {
             return false;
         }
@@ -390,20 +432,10 @@ function main($argc, $argv)
     $output_cert_file = $cmd_options['o'];
     $tos = isset($cmd_options['t']) ? $cmd_options['t'] : '';
 
-    // load account key
-    $account_key = Util::loadAccountKey($account_key_file);
-    if ($account_key === false) {
-        return false;
-    }
-    // load csr file
-    $csr = Util::loadCsrFile($csr_file);
-    if ($csr === false) {
-        return false;
-    }
-
     // create acme client
     $acme_client = new AcmeClient();
-    if ($acme_client->init($account_key) === false) {
+    if ($acme_client->init(
+            $account_key_file, $csr_file) === false) {
         return false;
     }
     // check tos
