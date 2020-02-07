@@ -225,7 +225,7 @@ final class AcmeClient
         return true;
     }
 
-    public function domainChallenge($domain_list)
+    public function domainChallenge($domain_list, $http_challenge_dir)
     {
         $identifiers = array();
         foreach ($domain_list as $domain) {
@@ -306,6 +306,16 @@ final class AcmeClient
             }
             if ($http_challenge === null) {
                 echo 'acme/authorization failed: `challenges` is invalid'."\n";
+                return false;
+            }
+
+            // write challenge file
+            $challenge_file_path =
+                $http_challenge_dir.'/'.$http_challenge['token'];
+            $challenge_file_content = $http_challenge['token']
+                .$this->account_key_info_['thumb_print'];
+            if (file_put_contents($challenge_file_path,
+                    $challenge_file_content) === false) {
                 return false;
             }
         }
@@ -456,7 +466,8 @@ function main($argc, $argv)
         return false;
     }
     // domain challenge
-    if ($acme_client->domainChallenge($domain_list) === false) {
+    if ($acme_client->domainChallenge(
+            $domain_list, $http_challenge_dir) === false) {
         return false;
     }
 
