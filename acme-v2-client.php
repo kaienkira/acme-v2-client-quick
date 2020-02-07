@@ -318,6 +318,12 @@ final class AcmeClient
                     $challenge_file_content) === false) {
                 return false;
             }
+
+            // send challenge ready
+            $ret = signedHttpRequest($http_challenge['url'], array());
+            if ($ret === false) {
+                return false;
+            }
         }
 
         return true;
