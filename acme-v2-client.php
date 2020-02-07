@@ -118,17 +118,19 @@ final class AcmeClient
             return false;
         }
 
+        $e = Util::urlbase64($key_info['rsa']['e']);
+        $n = Util::urlbase64($key_info['rsa']['n']);
         $thumb_print = array(
-            'e' => $key_info['rsa']['e'],
+            'e' => $e,
             'kty' => 'RSA',
-            'n' => $key_info['rsa']['n'],
+            'n' => $n,
         );
         $thumb_print = Util::urlbase64(openssl_digest(
             json_encode($thumb_print), 'sha256', true));
 
         $this->account_key_info_ = array(
-            'e' => Util::urlbase64($key_info['rsa']['e']),
-            'n' => Util::urlbase64($key_info['rsa']['n']),
+            'e' => $e,
+            'n' => $n,
             'thumb_print' => $thumb_print,
         );
     }
@@ -312,7 +314,7 @@ final class AcmeClient
             // write challenge file
             $challenge_file_path =
                 $http_challenge_dir.'/'.$http_challenge['token'];
-            $challenge_file_content = $http_challenge['token']
+            $challenge_file_content = $http_challenge['token'].'.'
                 .$this->account_key_info_['thumb_print'];
             if (file_put_contents($challenge_file_path,
                     $challenge_file_content) === false) {
